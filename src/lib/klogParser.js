@@ -382,6 +382,51 @@ export function aggregateByTag(records) {
         .map(([tag, minutes]) => ({ tag, minutes, hours: minutesToDecimalHours(minutes) }));
 }
 
+/**
+ * Helper: aggregate records by a period key with per-tag breakdowns.
+ * @param {Array} records
+ * @param {Function} keyFn - (record) => periodKey string
+ * @returns {Array<{key: string, tagBreakdown: Object<string, number>}>}
+ */
+function aggregateByPeriodWithTags(records, keyFn) {
+    // Map: periodKey -> { tagName -> totalMinutes }
+    const map = {};
+    for (const r of records) {
+        const key = keyFn(r);
+        if (!map[key]) map[key] = {};
+        for (const entry of r.entries) {
+            const tags = entry.allTags && entry.allTags.length > 0
+                ? entry.allTags.map(t => t.full || t)
+                : ['(untagged)'];
+            const perTag = entry.minutes / tags.length;
+            for (const tag of tags) {
+                if (!map[key][tag]) map[key][tag] = 0;
+                map[key][tag] += perTag;
+            }
+        }
+    }
+    return Object.entries(map)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, tagBreakdown]) => ({ key, tagBreakdown }));
+}
+
+export function aggregateByDateWithTags(records) {
+    return aggregateByPeriodWithTags(records, r => r.date);
+}
+
+export function aggregateByWeekWithTags(records) {
+    return aggregateByPeriodWithTags(records, r => {
+        const d = new Date(r.date);
+        const weekStart = new Date(d);
+        weekStart.setDate(d.getDate() - d.getDay() + 1);
+        return weekStart.toISOString().slice(0, 10);
+    });
+}
+
+export function aggregateByMonthWithTags(records) {
+    return aggregateByPeriodWithTags(records, r => r.date.slice(0, 7));
+}
+
 export function getAllTags(records) {
     const tagSet = new Set();
     for (const r of records) {

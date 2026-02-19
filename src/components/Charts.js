@@ -15,7 +15,11 @@ import {
     LineElement,
 } from 'chart.js';
 import { Bar, Doughnut, Line } from 'react-chartjs-2';
-import { aggregateByDate, aggregateByWeek, aggregateByMonth, aggregateByTag, formatMinutes } from '@/lib/klogParser';
+import {
+    aggregateByDate, aggregateByWeek, aggregateByMonth,
+    aggregateByDateWithTags, aggregateByWeekWithTags, aggregateByMonthWithTags,
+    aggregateByTag, formatMinutes, minutesToDecimalHours,
+} from '@/lib/klogParser';
 
 ChartJS.register(
     CategoryScale,
@@ -73,21 +77,67 @@ const chartDefaults = {
 
 export default function Charts({ records, config }) {
     const [timeMode, setTimeMode] = useState('daily');
+    const [showTags, setShowTags] = useState(false);
 
     const dailyData = useMemo(() => aggregateByDate(records), [records]);
     const weeklyData = useMemo(() => aggregateByWeek(records), [records]);
     const monthlyData = useMemo(() => aggregateByMonth(records), [records]);
     const tagData = useMemo(() => aggregateByTag(records), [records]);
 
+    const dailyTagData = useMemo(() => aggregateByDateWithTags(records), [records]);
+    const weeklyTagData = useMemo(() => aggregateByWeekWithTags(records), [records]);
+    const monthlyTagData = useMemo(() => aggregateByMonthWithTags(records), [records]);
+
     const timeData = timeMode === 'daily' ? dailyData :
         timeMode === 'weekly' ? weeklyData : monthlyData;
+
+    const timeTagData = timeMode === 'daily' ? dailyTagData :
+        timeMode === 'weekly' ? weeklyTagData : monthlyTagData;
 
     const labelKey = timeMode === 'daily' ? 'date' :
         timeMode === 'weekly' ? 'week' : 'month';
 
     const targetHours = config?.dailyTargetHours || 8.0;
 
-    const barChartData = {
+    // Build stacked datasets when showTags is true
+    const stackedChartData = useMemo(() => {
+        if (!showTags || timeTagData.length === 0) return null;
+
+        // Collect all unique tags across all periods, sorted by total hours descending
+        const tagTotals = {};
+        for (const period of timeTagData) {
+            for (const [tag, mins] of Object.entries(period.tagBreakdown)) {
+                if (!tagTotals[tag]) tagTotals[tag] = 0;
+                tagTotals[tag] += mins;
+            }
+        }
+        const sortedTags = Object.entries(tagTotals)
+            .sort(([, a], [, b]) => b - a)
+            .map(([tag]) => tag);
+
+        const labels = timeTagData.map(d => {
+            const val = d.key;
+            if (timeMode === 'daily' && val) return val.slice(5);
+            if (timeMode === 'weekly' && val) return 'W ' + val.slice(5);
+            return val;
+        });
+
+        const datasets = sortedTags.map((tag, i) => ({
+            label: '#' + tag,
+            data: timeTagData.map(d => {
+                const mins = d.tagBreakdown[tag] || 0;
+                return minutesToDecimalHours(mins);
+            }),
+            backgroundColor: TAG_COLORS[i % TAG_COLORS.length] + 'cc',
+            borderColor: TAG_COLORS[i % TAG_COLORS.length],
+            borderWidth: 1,
+            borderRadius: 2,
+        }));
+
+        return { labels, datasets };
+    }, [showTags, timeTagData, timeMode]);
+
+    const barChartData = showTags && stackedChartData ? stackedChartData : {
         labels: timeData.map(d => {
             const val = d[labelKey];
             if (timeMode === 'daily' && val) return val.slice(5); // MM-DD
@@ -105,6 +155,47 @@ export default function Charts({ records, config }) {
             order: 2,
         },
         ],
+    };
+
+    const barChartOptions = {
+        ...chartDefaults,
+        plugins: {
+            ...chartDefaults.plugins,
+            legend: {
+                display: showTags,
+                position: 'top',
+                labels: {
+                    color: '#8b8fa3',
+                    font: { family: 'Inter', size: 10 },
+                    padding: 8,
+                    usePointStyle: true,
+                    pointStyle: 'rect',
+                    boxWidth: 10,
+                },
+            },
+            tooltip: {
+                ...chartDefaults.plugins.tooltip,
+                mode: showTags ? 'index' : 'nearest',
+                callbacks: {
+                    label: (ctx) => {
+                        const val = ctx.parsed.y;
+                        if (showTags && val === 0) return null;
+                        return showTags ? ` ${ctx.dataset.label}: ${val.toFixed(2)}h` : `${val.toFixed(2)}h`;
+                    },
+                },
+            },
+        },
+        scales: {
+            ...chartDefaults.scales,
+            x: {
+                ...chartDefaults.scales.x,
+                stacked: showTags,
+            },
+            y: {
+                ...chartDefaults.scales.y,
+                stacked: showTags,
+            },
+        },
     };
 
     const trendChartData = {
@@ -153,21 +244,50 @@ export default function Charts({ records, config }) {
                                 {mode.charAt(0).toUpperCase() + mode.slice(1)}
                             </button>
                         ))}
+                        <label
+                            onClick={() => setShowTags(v => !v)}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                fontSize: '12px',
+                                color: showTags ? '#f0f1f5' : 'var(--text-muted)',
+                                cursor: 'pointer',
+                                marginLeft: '10px',
+                                userSelect: 'none',
+                                transition: 'color 0.2s',
+                            }}
+                        >
+                            <span style={{
+                                position: 'relative',
+                                width: '32px',
+                                height: '18px',
+                                borderRadius: '9px',
+                                background: showTags
+                                    ? 'linear-gradient(135deg, #6366f1, #8b5cf6)'
+                                    : 'rgba(255, 255, 255, 0.1)',
+                                transition: 'background 0.25s ease',
+                                boxShadow: showTags ? '0 0 8px rgba(99, 102, 241, 0.4)' : 'none',
+                                flexShrink: 0,
+                            }}>
+                                <span style={{
+                                    position: 'absolute',
+                                    top: '2px',
+                                    left: showTags ? '16px' : '2px',
+                                    width: '14px',
+                                    height: '14px',
+                                    borderRadius: '50%',
+                                    background: '#fff',
+                                    transition: 'left 0.25s ease',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                                }} />
+                            </span>
+                            Tags
+                        </label>
                     </div>
                 </div>
                 <div className="chart-container">
-                    <Bar data={barChartData} options={{
-                        ...chartDefaults,
-                        plugins: {
-                            ...chartDefaults.plugins,
-                            tooltip: {
-                                ...chartDefaults.plugins.tooltip,
-                                callbacks: {
-                                    label: (ctx) => `${ctx.parsed.y.toFixed(2)}h`,
-                                },
-                            },
-                        },
-                    }} />
+                    <Bar data={barChartData} options={barChartOptions} />
                 </div>
             </div>
 
