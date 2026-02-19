@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.0](https://github.com/muecahit94/klog-dashboard/compare/v1.2.1...v1.3.0) (2026-02-19)
+
+
+### Features
+
+* Implement stacked bar charts to visualize time spent per tag, controlled by a new UI toggle ([d24d9f2](https://github.com/muecahit94/klog-dashboard/commit/d24d9f29aae9a8ee61ff4a264e81638f9ce74a4c))
+* Implement stacked bar charts to visualize time spent per tag,.. ([3d9a6c1](https://github.com/muecahit94/klog-dashboard/commit/3d9a6c1ed5465e36537c60492601770d82d99427))
+
 ## [1.2.1](https://github.com/muecahit94/klog-dashboard/compare/v1.2.0...v1.2.1) (2026-02-14)
 
 
