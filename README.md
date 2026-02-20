@@ -17,7 +17,6 @@ A beautiful visual dashboard for [klog](https://github.com/jotaen/klog) time tra
 - **📈 Tag Breakdown** – Visual bar chart of time per tag.
 - **📥 Export** – Export filtered data as CSV or JSON.
 - **⚡ Keyboard Shortcuts** – `⌘O` to import, `Esc` to clear filters.
-- **💾 Persistent State** – Data saved in localStorage between sessions.
 - **✨ Demo Data** – Built-in sample data to explore the dashboard immediately.
 
 ## 🚀 Quick Start
