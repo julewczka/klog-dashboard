@@ -24,13 +24,13 @@ A beautiful visual dashboard for [klog](https://github.com/jotaen/klog) time tra
 ### Local Development
 
 ```bash
-npm install
+pnpm install
 
 # Default — watches ./data for klog files
-npm run dev
+pnpm run dev
 
 # Point to a custom folder
-KLOG_DATA_DIR=/path/to/your/klog/files npm run dev
+KLOG_DATA_DIR=/path/to/your/klog/files pnpm run dev
 ```
 
 Open **http://localhost:3000**
