@@ -1,6 +1,41 @@
 {
     "$schema": "https://docs.renovatebot.com/renovate-schema.json",
     "extends": [
-        "config:recommended"
+        "config:recommended",
+        ":pinVersions"
+    ],
+    "rangeStrategy": "pin",
+    "automerge": false,
+    "prCreation": "immediate",
+    "labels": ["dependencies"],
+    "vulnerabilityAlerts": {
+        "enabled": true,
+        "labels": ["security"]
+    },
+    "packageRules": [
+        {
+            "description": "Group all non-major npm updates into a single PR for easier review",
+            "matchUpdateTypes": ["minor", "patch"],
+            "matchManagers": ["npm"],
+            "groupName": "npm non-major",
+            "schedule": ["before 9am on monday"]
+        },
+        {
+            "description": "Major updates get individual PRs — require manual review",
+            "matchUpdateTypes": ["major"],
+            "dependencyDashboardApproval": true
+        },
+        {
+            "description": "Pin GitHub Actions digests and group updates",
+            "matchManagers": ["github-actions"],
+            "pinDigests": true,
+            "groupName": "github-actions",
+            "schedule": ["before 9am on monday"]
+        },
+        {
+            "description": "Pin Docker image digests",
+            "matchManagers": ["dockerfile"],
+            "pinDigests": true
+        }
     ]
 }
